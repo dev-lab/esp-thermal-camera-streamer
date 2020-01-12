@@ -14,7 +14,7 @@ The project is inspired by [The Easiest Thermal Camera Build You’ll Ever See](
 ### Web UI overview:
 
 #### UI overview:
-![Web UI Overview (video)](https://youtu.be/NmfaSpEZDmY)
+[Web UI Overview (video)](https://youtu.be/NmfaSpEZDmY)
 
 #### Setup Wi-Fi access point:
 [![Setup Wi-Fi access point (animation)](https://github.com/dev-lab/blob/blob/master/iot-power-strip/generic-switch-web-ui-config-wifi-ap-pic.png)](https://github.com/dev-lab/blob/blob/master/iot-power-strip/generic-switch-web-ui-config-wifi-ap.gif)
