@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<head>
+<meta charset=utf-8>
+<style>
+body {
+	font-family: Arial,"Helvetica Neue",Helvetica,sans-serif;
+	background: #000;
+	color: #88D;
+	margin: 0;
+}
+button {
+	width:50px;
+}
+label {
+	display:inline-block;
+}
+</style>
+<title>Thermal Camera</title>
+<script language="javascript">
+
+let cels = true;
+const camW=32, camH=24, camS=camH*camW,
+fl = Math.floor;
+
+function sTemp(v) {
+	return (cels ? (v/100) : (fl(v*9/5 + 3200)/100)) + "\xB0" + (cels?"C":"F");
+}
+
+function bi3i(d, x, y) {
+	const x1=x+1, x2=x+2, x3=x+3, y1=y+1, y2=y+2, y3=y+3,
+	a00 = d[y1][x1],
+        a01 = -.5*d[y][x1] + .5*d[y2][x1],
+        a02 = d[y][x1] - 2.5*d[y1][x1] + 2*d[y2][x1] - .5*d[y3][x1],
+        a03 = -.5*d[y][x1] + 1.5*d[y1][x1] - 1.5*d[y2][x1] + .5*d[y3][x1],
+        a10 = -.5*d[y1][x] + .5*d[y1][x2],
+        a11 = .25*d[y][x] - .25*d[y2][x] - .25*d[y][x2] + .25*d[y2][x2],
+        a12 = -.5*d[y][x] + 1.25*d[y1][x] - d[y2][x] + .25*d[y3][x] + .5*d[y][x2] - 1.25*d[y1][x2] + d[y2][x2] - .25*d[y3][x2],
+        a13 = .25*d[y][x] - .75*d[y1][x] + .75*d[y2][x] - .25*d[y3][x] - .25*d[y][x2] + .75*d[y1][x2] - .75*d[y2][x2] + .25*d[y3][x2],
+        a20 = d[y1][x] - 2.5*d[y1][x1] + 2*d[y1][x2] - .5*d[y1][x3],
+        a21 = -.5*d[y][x] + .5*d[y2][x] + 1.25*d[y][x1] - 1.25*d[y2][x1] - d[y][x2] + d[y2][x2] + .25*d[y][x3] - .25*d[y2][x3],
+        a22 = d[y][x] - 2.5*d[y1][x] + 2*d[y2][x] - .5*d[y3][x] - 2.5*d[y][x1] + 6.25*d[y1][x1] - 5*d[y2][x1] + 1.25*d[y3][x1] + 2*d[y][x2] - 5*d[y1][x2] + 4*d[y2][x2] - d[y3][x2] - .5*d[y][x3] + 1.25*d[y1][x3] - d[y2][x3] + .25*d[y3][x3],
+        a23 = -.5*d[y][x] + 1.5*d[y1][x] - 1.5*d[y2][x] + .5*d[y3][x] + 1.25*d[y][x1] - 3.75*d[y1][x1] + 3.75*d[y2][x1] - 1.25*d[y3][x1] - d[y][x2] + 3*d[y1][x2] - 3*d[y2][x2] + d[y3][x2] + .25*d[y][x3] - .75*d[y1][x3] + .75*d[y2][x3] - .25*d[y3][x3],
+        a30 = -.5*d[y1][x] + 1.5*d[y1][x1] - 1.5*d[y1][x2] + .5*d[y1][x3],
+        a31 = .25*d[y][x] - .25*d[y2][x] - .75*d[y][x1] + .75*d[y2][x1] + .75*d[y][x2] - .75*d[y2][x2] - .25*d[y][x3] + .25*d[y2][x3],
+        a32 = -.5*d[y][x] + 1.25*d[y1][x] - d[y2][x] + .25*d[y3][x] + 1.5*d[y][x1] - 3.75*d[y1][x1] + 3*d[y2][x1] - .75*d[y3][x1] - 1.5*d[y][x2] + 3.75*d[y1][x2] - 3*d[y2][x2] + .75*d[y3][x2] + .5*d[y][x3] - 1.25*d[y1][x3] + d[y2][x3] - .25*d[y3][x3],
+        a33 = .25*d[y][x] - .75*d[y1][x] + .75*d[y2][x] - .25*d[y3][x] - .75*d[y][x1] + 2.25*d[y1][x1] - 2.25*d[y2][x1] + .75*d[y3][x1] + .75*d[y][x2] - 2.25*d[y1][x2] + 2.25*d[y2][x2] - .75*d[y3][x2] - .25*d[y][x3] + .75*d[y1][x3] - .75*d[y2][x3] + .25*d[y3][x3];
+
+	return (x, y) => {
+		const x2 = x*x, x3 = x2*x, y2 = y*y, y3 = y2*y;
+		return	(a00 + a01*y + a02*y2 + a03*y3) +
+			(a10 + a11*y + a12*y2 + a13*y3) * x +
+			(a20 + a21*y + a22*y2 + a23*y3) * x2 +
+			(a30 + a31*y + a32*y2 + a33*y3) * x3;
+	};
+ 
+}
+
+let b64decode = (() => {
+	const b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+
+	return (v) => {
+		let r = [];
+		let c1, c2, c3, e1, e2, e3, e4, i = 0;
+		v = v.replace(/[^A-Za-z0-9\+\/\=]/g, "");
+		let g = (y => b64.indexOf(v.charAt(y)));
+        	
+		while(i < v.length) {
+			e1 = g(i++), e2 = g(i++), e3 = g(i++), e4 = g(i++);
+		
+			c1 = (e1<<2) | (e2>>4);
+        	        c2 = ((e2&15) << 4) | (e3>>2);
+			c3 = ((e3&3) << 6) | e4;
+		
+			r.push(c1);
+        	        if(e3!=64) r.push(c2);
+                	if(e4!=64) r.push(c3);
+		}
+		return r;
+	}
+})();
+
+let minT, maxT, avgT = false;
+
+let RFrame = (t, d) => ({time:t, data:d});
+
+function Timer() {
+	let total = 0, count = 0, last = 0;
+	let t = () => new Date().getTime();
+
+	this.start = function() {
+		last = t();
+	};
+
+	this.stop = function() {
+		let n = t(), r = 0;
+		if(last > 0) {
+			++count;
+			r = n-last;
+			total += r;
+			last = 0;
+		}
+		return r;
+	};
+	this.avg = function() {
+		return count > 0 ? Math.round(total * 1000/count)/1000 : 0;
+	};
+}
+
+let ColorMap = (() => {
+	const M = 255;
+	let data = [], lmn = 0, lmx = 0;
+
+	return (mn, mx) => {
+		const MN = fl(mn), MX = fl(mx), P8 = (mx-mn)/8.0, P1 = fl(mn+P8),
+			P2 = fl(mn+P8*3), P3 = fl(mn+P8*5), P4 = fl(mn+P8*7), Q = fl(P8*2);
+
+		let i = function(val, y0, x0, y1, x1) {
+			return fl((val-x0)*(y1-y0)/(x1-x0) + y0);
+		};
+
+		let b = function(v) {
+			if(v <= P1) return 0;
+			else if(v < P2) return i(v, 0, P1, M, P2);
+			else if(v < P3) return M;
+			else if(v < P4) return i(v, M, P3, 0, P4);
+			else return 0;
+		};
+
+		let co = function(v) {
+			return [b(v-Q), b(v), b(v+Q)];
+		};		
+	
+		if(lmn != MN || lmx != MX) {
+			lmn = MN;
+			lmx = MX;
+			for(let it=MN; it < MX; ++it) data[it] = co(it);
+		}
+	
+		return v => data[(v < MN ? MN : (v >= MX ? MX-1 : v))];
+	};
+})();
+
+function colorStr(c) {
+	const he = v => {
+		let h = Number(v).toString(16);
+		return (h.length < 2) ? "0"+h : h;
+	};
+	return "#" + he(c[0]) + he(c[1]) + he(c[2]); 
+}
+
+let Frame = (t, b, a, mn, mx, d) => ({time:t, amb: b, avg:a, min:mn, max:mx, data:d});
+
+function JetRenderer(name) {
+	const cv = ge(name),
+	ctx = cv.getContext("2d"),
+	w = cv.width,
+	h = cv.height,
+	id = ctx.createImageData(w, h);
+
+	return () => {
+		const cm = ColorMap(1, h), w4 = w*4;
+		for(let y = 0, ys = 0; y < h; ++y, ys += w4) {
+			let cl = cm(h-y);
+			for(let x = 0, px = ys; x < w; ++x) {
+				id.data[px++] = cl[0];
+				id.data[px++] = cl[1];
+				id.data[px++] = cl[2];
+				id.data[px++] = 127 + fl((x+1)*128.0/w);
+			}
+		}
+		ctx.putImageData(id, 0, 0);
+	};
+
+}
+
+function FrameRenderer(name, ratio) {
+	const cv = ge(name),
+	ctx = cv.getContext("2d"),
+	w = cv.width, rw = w/ratio, ws = w/camW, rws = fl(ws/ratio),
+	h = cv.height, rh = h/ratio, hs = h/camH, rhs = fl(hs/ratio);
+
+	if(ratio > 1) ctx.scale(ratio, ratio);
+	let tcv = document.createElement("canvas");
+	tcv.height = rh;
+	tcv.width = rw;
+	let tctx = tcv.getContext("2d");
+	let id = tctx.createImageData(rw, rh);
+
+	function lextra(r, i, d) {
+		let el = r[i]-r[i-d];
+		r[i+d] = r[i]+el;
+		r[i+d+d] = r[i+d]+el;
+	}
+
+	function hextra(c, i, d) {
+		c[i+d] = [];
+		c[i+d+d] = [];
+		for(let x = -2; x < camW + 2; ++x) {
+			let el = c[i][x] - c[i-d][x];
+			c[i+d][x] = c[i][x] + el;
+			c[i+d+d][x] = c[i+d][x] + el;
+		}
+	}
+
+	function addExtra(d) {
+		let r = [];
+		for(let y = 0; y < camH; ++y) {
+			let ys = y*camW;
+			let row = [];
+			for(let x = 0; x < camW; ++x) {
+				row[x] = d[ys+camW-x-1];
+			}
+			lextra(row, 0, -1);
+			lextra(row, camW-1, 1);
+			r[y] = row;
+		}
+		hextra(r, 0, -1);
+		hextra(r, camH-1, 1);
+		return r;
+	}
+
+	function createImage(frame) {
+		let cm = ColorMap(frame.min, frame.max);
+		let d = addExtra(frame.data);
+		const rh2 = fl(rhs/2), rw2 = fl(rws/2), rw4 = rw*4, rw4s = rw4*rhs, rws4 = rws*4, yis1 = 1.0/rhs, xis1 = 1.0/rws;
+		for(let y = 0, ys = 0; y < (camH + 1); ++y, ys += rw4s) {
+			for(let x =0, xs = 0; x < (camW + 1); ++x, xs += rws4) {
+				let bi = bi3i(d, x-2, y-2);
+				for(let yi = (y == 0 ? rh2 : 0), yis = yi/rhs, ysi = ys + xs + ((yi - rh2) * rw4); yi < (y == camH ? rh2 : rhs); ++yi, yis += yis1, ysi += rw4) {
+					for(let xi = (x == 0 ? rw2 : 0), xis = xi/rws, px = ysi + (xi-rw2)*4; xi < (x == camW ? rw2 : rws); ++xi, xis += xis1, px+=4) {
+						let gr = fl(bi(xis, yis));
+						let cl = cm(gr);
+		                                id.data[px] = cl[0];
+        			                id.data[px+1] = cl[1];
+                                		id.data[px+2] = cl[2];
+		                                id.data[px+3] = 255;
+					}
+				}
+			}
+		}
+        }
+
+	return frame => {
+		createImage(frame);
+		tctx.putImageData(id, 0, 0);
+		ctx.drawImage(tcv, 0, 0);
+	};
+}
+
+function intersects(a,b,c,d,p,q,r,s) {
+	const det = (c-a) * (s-q) - (r-p) * (d-b);
+	if (det === 0) {
+		return false;
+	} else {
+		let lambda = ((s-q) * (r-a) + (p-r) * (s-b)) / det,
+			gamma = ((b-d) * (r-a) + (c-a) * (s-b)) / det;
+		return (0 < lambda && lambda < 1) && (0 < gamma && gamma < 1);
+	}
+}
+
+function Poi(name) {
+	const cv = ge(name),
+	ctx = cv.getContext("2d"),
+	rect = cv.getBoundingClientRect(),
+	w = 640,
+	h = cv.height,
+	ws = w/camW,
+	hs = h/camH,
+	maxPoi = 10,
+	poiY = fl(h/(maxPoi + 3)),
+	poiY0 = fl(1.5*poiY),
+	poiYa = h - 2*poiY0;
+	poiX0 = w+1,
+	poiX1 = cv.width-1,
+	poiXr = fl((poiX0 + poiX1)/2);
+	let poi = [];
+	let frame = null;
+
+	function getLine(i) {
+		const n = poi[i],
+		y = fl(n/camW) * hs + hs/2,
+		x = (n%camW) * ws + ws/2,
+		d = fl(poiYa/poi.length),
+		pY = poiY0 + fl(d/2) + d*i;
+		return {x1:x, y1:y, x2:poiX0, y2:pY};
+	}
+
+	function ints(i1, i2) {
+		const a = getLine(i1), b = getLine(i2);
+		return intersects(a.x1, a.y1, a.x2, a.y2, b.x1, b.y1, b.x2, b.y2); 
+	}
+
+	function sw(a, b) {
+		const x = poi[a];
+		poi[a] = poi[b];
+		poi[b] = x;
+	}
+
+	function add(n) {
+		function dist(a, b) {
+			const a1 = a%camW-b%camW,
+			b1 = fl((a-b)/camW);
+			return Math.sqrt(a1*a1 + b1*b1);
+		}
+		if(n < 0 || n >= camS) return;
+		let i = poi.indexOf(n);
+		if(i < 0) poi.push(n);
+		else poi.splice(i, 1);
+		if(poi.length > maxPoi) {
+			var td = 0, tm = 10000;
+			for(let i = 0; i < maxPoi; ++i) {
+				let d = dist(poi[i], n);
+				if(d < tm) {
+					td = i;
+					tm = d;
+				}
+			}
+			poi.splice(td, 1);
+		}
+		poi.sort((a, b) => a-b);
+		let sorted = false;
+		while(!sorted) {
+			sorted = true;
+			for(let i = 1; i < poi.length; ++i) {
+				for(let y = 0; y < i; y++) {
+					if(ints(i, y)) {
+						sw(i, y);
+						if(ints(i, y)) sw(i, y);
+						else sorted = false;
+					}
+				}
+			}
+		}
+		if(frame) window.requestAnimationFrame(render);
+	}
+
+	function reset(d) {
+		poi = [];
+		if(d) d.forEach(v => add(v));
+	}
+
+	cv.onmousedown = event => {
+		let x = event.pageX - rect.left;
+		if(x >= w) return;
+		x = fl(x/ws);
+		let y = fl((event.pageY - rect.top)/hs);
+		add(y*camW + x);
+	};
+	
+	function render() {
+		if(!frame) return;
+		let cm = ColorMap(frame.min, frame.max);
+		ctx.clearRect(0, 0, rect.right, rect.bottom);
+		ctx.lineWidth = 2;
+		ctx.font = "15px Arial";
+		ctx.textAlign = "center";
+		ctx.textBaseline = "middle";
+		ctx.strokeStyle = "black";
+		for(let i = 0; i < poi.length; ++i) {
+			ctx.beginPath();
+			let line = getLine(i);
+			let n = poi[i];
+			let tmp = frame.data[n + camW - 2*(n%camW) - 1];
+			let cl = colorStr(cm(tmp));
+			ctx.fillStyle = cl;
+			ctx.arc(line.x1, line.y1, 3, 0, 2*Math.PI);
+			ctx.lineTo(poiX0, line.y2);
+			ctx.stroke();
+			ctx.beginPath();
+			let grd = ctx.createRadialGradient(poiXr + poiY/2, line.y2 + poiY/2, poiY/6, poiXr, line.y2, (poiX1 - poiXr));
+			grd.addColorStop(0, cl);
+			grd.addColorStop(1, "black");
+			ctx.fillStyle = grd;
+			ctx.ellipse(poiXr, line.y2, poiX1 - poiXr, poiY/2, 0, 0, 2*Math.PI);
+			ctx.fill();
+			ctx.beginPath();
+			ctx.fillStyle = "white";
+			ctx.fillText(sTemp(tmp), poiXr, line.y2);
+		}
+		ctx.beginPath();
+		ctx.fillStyle = "white";
+		ctx.fillText(sTemp(frame.max), poiXr, poiY/2);
+		ctx.fillText(sTemp(frame.min), poiXr, h - poiY/2);
+	}
+
+	return {render: frm => {
+		frame = frm;
+		render();
+	}, set: d => reset(d), get: () => poi };
+}
+
+function FramesIt(frames, cycle, inc, i) {
+	var l = frames.length;
+	if(i === undefined) i = inc > 0 ? 0 : (l-1);
+	return () => {
+		l = frames.length;
+		if(l == 0) return null;
+		if(i < 0) {
+			if(cycle) i = l-1;
+			else return null;
+		} else if(i >= l) {
+			if(cycle) i = 0;
+			else return null;
+		}
+		let r = frames[i];
+		let n = i;
+		i = i + inc;
+		p = (i < 0 || i >= l) ? 250 : Math.abs(frames[i].time.getTime() - r.time.getTime());
+		return {frame: r, period: p, i: n};
+	};
+}
+
+function onBodyLoad() {
+
+const	htd = "ThermalData",
+	h64 = "Base64";
+	lFrame = ge("frameN"),
+	bCels = ge("cels"),
+	lTime = ge("time"),
+	lAvg = ge("avg"),
+	fLd = ge("ld"),
+	frameRenderer = FrameRenderer("thermal", 2),
+	poi = Poi("poi"),
+	jetRenderer = JetRenderer("jet");
+
+let	captured = [],
+	frames = [],
+	lastFrame = null,
+	frameN;
+
+function loadFrame(frame) {
+	const	d = frame.data, LE = 1540, SB = 1<<15, WM = 0xFFFF, SM = 0x10000;
+	let	min = WM, max = -WM, avg = 0, r = [];
+	let f = i => (d[i] | (d[i+1]<<8));
+	let cs = f(0)+f(2)+f(LE);
+	for(let i=4 ; i < LE; i+=2) {
+		let v = f(i);
+		cs += v;
+		if(v&SB) v -= SM;
+		avg += v;
+		if(v > max) max = v;
+		if(v < min) min = v;
+		r.push(v);
+	}
+	let amb = f(LE);
+	if(amb&SB) amb -= SM;
+	if(f(LE+2) != (cs&WM)) return null;
+	if(min < minT) minT = min;
+	if(max > maxT) maxT = max;
+	return Frame(frame.time, amb, fl(avg/camS), avgT ? minT : min, avgT ? maxT : max, r);
+}
+
+function playStreamFrame() {
+	let rFrame = frames.shift();
+	let prevDate = lastFrame ? lastFrame.time : null;
+	let frame = loadFrame(rFrame);
+	if(!frame) return;
+	lastFrame = rFrame;
+	frameRenderer(frame);
+	poi.render(frame);
+	lFrame.innerHTML = frameN;
+	lTime.innerHTML = frame.time.toISOString().replace(/Z/g,'').replace(/T/g,' ');
+	lAvg.innerHTML = sTemp(frame.avg) + ", ambient: " + sTemp(frame.amb);
+}
+
+function onFrameData(rf) {
+	const f = b64decode(rf.data);
+	if(f.length != 1544 || f[0] != 0x5A || f[1] != 0x5A || f[2] != 0x2 || f[3] != 0x6) return;
+	frames.push(RFrame(rf.time, f));
+	window.requestAnimationFrame(playStreamFrame);
+}
+
+let player = (function() {
+const	bRec = ge("rec"),
+	bDel = ge("del"),
+	bPlay = ge("play"),
+	bAcc = ge("acc");
+let	recording = true,
+	playing, paused, ff, del, speed, pfs = [];
+
+	function ui() {
+		bPlay.innerHTML = paused ? "\u25b6" : "\u25ae\u25ae";
+		bPlay.title = paused ? "Play" : "Pause";
+		Array.prototype.forEach.call(document.getElementsByClassName("pl"), e => e.disabled = recording);
+		bDel.disabled = playing && !paused;
+		bDel.style.color = bDel.disabled ? null : "red";
+		uiSpeed();
+	}
+
+	function reset() {
+		minT = 0x7FFF;
+		maxT = -0xFFFF;
+		playing = false;
+		paused = true;
+		lastFrame = null;
+		ff = 0;
+		del = false;
+		speed = 1;
+		ui();
+	}
+
+	function sleep(ms) {
+		return new Promise(resolve => setTimeout(resolve, ms));
+	}
+
+	async function play() {
+		while(playing) {
+			if(!pfs || pfs.length == 0) {
+				playing = false;
+				ui();
+				break;
+			}
+			let dir = speed > 0 ? 1 : -1;
+			let nxt = FramesIt(pfs, true, dir);
+			let frameTimer = new Timer();
+			for(let frame = nxt(); frame != null && playing; frame = nxt()) {
+				let dir1 = speed > 0 ? 1 : -1;
+				if(dir1 != dir) {
+					dir = dir1;
+					nxt = FramesIt(pfs, true, dir, frame.i);
+					frame = nxt();
+				}
+				frameTimer.start();
+				setFrameN(frame.i);
+				onFrameData(frame.frame);
+				let tProc = frameTimer.stop();
+				do {
+					if(!playing) break;
+					if(paused) {
+						let prev = frame.i;
+						if(del) {
+							del = false;
+							pfs.splice(frame.i, 1);
+							prev = -1;
+						}
+						if(ff < 0) {
+							++ff;
+							if(frame.i > 0) frame.i--;
+						} else if(ff > 0) {
+							--ff;
+							if(frame.i < (pfs.length - 1)) frame.i++;
+						}
+						if(prev != frame.i) {
+							nxt = FramesIt(pfs, true, dir, frame.i);
+							setFrameN(frame.i);
+							onFrameData(pfs[frame.i]);
+						}
+					}
+					let tDiff = frame.period/Math.abs(speed) - tProc;
+					await sleep(tDiff > 0 ? (tDiff > 2000 ? 2000 : tDiff) : 50);
+				} while (paused);
+			}
+		}
+	}
+
+	let uiSpeed = () => ge("speed").innerHTML = speed + "x";
+	let setFrameN = i => frameN = i + "/" + pfs.length;
+
+	function stopRec() {
+		if(!stream) return;
+		stream.abort();
+		stream.onreadystatechange = () => {};
+		stream = null;
+		pfs = captured;
+		reset();
+	}
+
+	function handleStreamData(responseText, status) {
+		if(status != 200) {
+			recording = false;
+			updateRecorder();
+		}
+		if(stream.seen === undefined) stream.seen = 0;
+		let e = responseText.indexOf('\n', stream.seen);
+		if(e < 0) return;
+		const seen = stream.seen;
+		stream.seen = ++e;
+		const f = RFrame(new Date(), responseText.substring(seen, stream.seen - 1));
+		captured.push(f);
+		frameN = captured.length - 1;
+		onFrameData(f);
+	}
+
+	function updateRecorder() {
+		bRec.style.color = recording ? "red" : null;
+		reset();
+		if(recording) {
+			stream = http("/stream", null, handleStreamData, 3);
+		} else {
+			stopRec();
+		}
+	}
+
+	bRec.onclick = () => {
+		recording = !recording;
+		updateRecorder();
+	};
+	bPlay.onclick = () => {
+		ff = 0;
+		if(!playing) {
+			speed = 1;
+			paused = false;
+			playing = true;
+			ui();
+			play();
+		} else {
+			paused = !paused;
+			ui();
+		}
+	};
+	bDel.onclick = () => del = true;
+	ge("stop").onclick = () => reset();
+	ge("ff").onclick = () => ++ff;
+	ge("fb").onclick = () => --ff;
+	ge("speedf").onclick = () => {
+		if(speed >= 32) return;
+		if(speed > 0) speed *= 2;
+		else if(speed < -1) speed /= 2;
+		else speed = 1;
+		uiSpeed();
+	};
+	ge("speedb").onclick = () => {
+		if(speed <= -32) return;
+		if(speed > 1) speed /= 2;
+		else if(speed < 0) speed *= 2;
+		else speed = -1;
+		uiSpeed();
+	};
+	bAcc.onclick = () => {
+		avgT = !avgT;
+		bAcc.innerHTML = avgT ? "*\xB0" : ".\xB0";
+	};
+
+	reset();
+	updateRecorder();
+	window.onunload = stopRec;
+
+	return {set: fs => {pfs=fs; reset()}, get: () => pfs };
+})();
+
+function download(data, filename, type) {
+	let file = new Blob([data], {type: type});
+	let a = document.createElement("a"),
+	url = URL.createObjectURL(file);
+	a.href = url;
+	a.download = filename;
+	document.body.appendChild(a);
+	a.click();
+	setTimeout(() => {
+		document.body.removeChild(a);
+		window.URL.revokeObjectURL(url);  
+	}, 0); 
+}
+
+function loadFile() {
+	let filePath = URL.createObjectURL(fLd.files[0]);
+	let f = new XMLHttpRequest();
+	f.open("GET", filePath, true);
+	f.send(null);
+
+	f.onreadystatechange = function(){
+		if(f.readyState === 4 && (f.status === 200 || f.status == 0)){
+			let t = f.responseText;
+			let j = JSON.parse(t);
+			if(j.type != htd || j.encoding != h64 || j.data.length < 1) {
+				throw htd + " can't be loaded.";
+			}
+			for(let i = 0; i < j.data.length; ++i) {
+				j.data[i].time = new Date(j.data[i].time);
+			}
+			player.set(j.data);
+			poi.set(j.poi);
+		}
+	}
+}
+
+bCels.onclick = () => {
+	cels = !cels;
+	bCels.innerHTML = cels ? "\xB0F" : "\xB0C";
+};
+
+fLd.addEventListener("change", loadFile, false);
+ge("save").onclick = () => {
+	let d = {type: htd, encoding: h64, time: new Date(), poi: poi.get(), data: player.get()};
+	download(JSON.stringify(d, null, "\t"), "thermal." + d.time.toISOString().replace(/[-:Z]/g,'').replace(/[T.]/g,'-') + ".json", "application/json");
+};
+window.requestAnimationFrame(jetRenderer);
+}
+
+</script>
+</head>
+<body>
+<section>
+<div id="vp" style="position:relative; width:700px; height:480px">
+<canvas id="thermal" style="z-index:1; position:absolute; left:0px; top:0px" width="640" height="480"></canvas>
+<canvas id="jet" style="z-index:2; position:absolute; left:640px; top:0px" width="70" height="480"></canvas>
+<canvas id="poi" style="z-index:3; position:absolute; left:0px; top:0px" width="710" height="480"></canvas>
+</div>
+<button type="button" id="rec" title="Record">&#9679;</button>
+<button type="button" class="pl" id="play"></button>
+<button type="button" class="pl" id="stop" title="Stop">&#9724;</button>
+<button type="button" class="pl" id="speedb" title="Fast backwards">&#9666;&#9666;</button>
+<button type="button" class="pl" id="fb" title="Back frame">&#9646;&#9666;</button>
+<button type="button" class="pl" id="del" title="Delete frame">&#x2717;</button>
+<button type="button" class="pl" id="ff" title="Forward frame">&#9656;&#9646;</button>
+<button type="button" class="pl" id="speedf" title="Fast forward">&#9656;&#9656;</button>
+<label id="speed" style="width:30px" title="Playing speed"></label>
+<label id="frameN" style="width:90px" title="Current frame/Total frames"></label>
+<input id="ld" type="file" style="display:none;" accept="application/json" />
+<button type="button" style="width:70px" class="pl" id="load" onclick="ge('ld').click();">Load</button>
+<button type="button" style="width:70px" id="save">Save</button>
+<br/>
+<label id="time" style="width:200px" title="Frame timestamp"></label>
+<label id="avg" style="width:230px" title="Average temperature"></label>
+<button type="button" id="cels" title="Celsius/Fahrenheit">&#176;F</button>
+<button type="button" id="acc" title="Accumulate min/max (*&#176;) or per frame (.&#176;)">.&#176;</button>
+</section>
+<script language="javascript">
+window.onload = function() {
+	let j = document.createElement("script");
+	j.src = "ju.js";
+	j.onload = onBodyLoad;
+	document.body.appendChild(j);
+};
+</script>
+</body>
