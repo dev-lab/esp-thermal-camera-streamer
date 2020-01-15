@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<head>
+<meta charset=utf-8>
+<style>
+html { height: 90% }
+body {
+	font-family: Arial,"Helvetica Neue",Helvetica,sans-serif;
+	background: #000;
+	color: #88D;
+	height: 100%
+}
+a {
+	padding: 5px 5px 5px 5px;
+	-webkit-border-radius: 3px;
+	-moz-border-radius: 3px;
+	border-radius: 3px;
+}
+</style>
+<title>Thermal Camera UI Demo</title>
+<script language="javascript">
+
+const examples = [
+	"first-snow",
+	"roasted-duck",
+	"melting-ice-cubes"
+];
+
+const   htd = "ThermalData",
+        h64 = "Base64";
+
+let ctx = null;
+
+function sleep(ms) {
+	return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function jsonLoadImpl(cf) {
+	while(!ctx) {
+		await sleep(200);
+	}
+        var h = cf.contentWindow.location.href;
+        document.title = "Thermal data example: " + h;
+        var as = document.getElementsByTagName('a');
+        for(i = 0; i < as.length; i++){
+                as[i].style.backgroundColor = (as[i].href == h ? "#CCC" : "#000");
+        }
+	ctx.document.getElementById("stop").click();
+	await sleep(1000);
+	let doc = cf.contentDocument || cf.contentWindow.document;
+	let j = JSON.parse(doc.body.innerText);
+	if(j.type != htd || j.encoding != h64 || j.data.length < 1) {
+	        throw htd + " can't be loaded.";
+	}
+	for(let i = 0; i < j.data.length; ++i) {
+	        j.data[i].time = new Date(j.data[i].time);
+	}
+	ctx.player.set(j.data);
+	ctx.poi.set(j.poi);
+	ctx.document.getElementById("play").click();
+}
+
+function cfLoad(cf) {
+	jsonLoadImpl(cf);
+}
+
+function mfLoad(mf) {
+	ctx = mf.contentWindow;
+}
+
+function onBodyLoad() {
+	const examplesDiv = ge("examples");
+
+	let html = [];
+	html.push("<table><tr>");
+	examples.forEach(name => {
+		html.push("<th><a href=\"./examples/" + name + ".json\" target=\"cf\">" + name + "</a></th>");
+	});
+	html.push("</tr></table>");
+	examplesDiv.innerHTML = html.join("\n");
+
+}
+
+</script>
+</head>
+<body>
+Select one of the previously recorded examples of thermal data to play:
+<iframe src="./examples/first-snow.json" name="cf" style="width:0;height:0;border:0; border:none;" onload="cfLoad(this)"></iframe>
+<div id="examples"></div>
+<iframe width="100%" height="100%" src="./src/ctl.htm" id="mf" style="border:none" onload="mfLoad(this)"></iframe>
+<script language="javascript">
+window.onload = function() {
+        let j = document.createElement("script");
+        j.src = "./src/ju.js";
+        j.onload = onBodyLoad;
+        document.body.appendChild(j);
+};
+</script>
+</body>

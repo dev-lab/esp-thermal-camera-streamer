@@ -413,15 +413,15 @@ function FramesIt(frames, cycle, inc, i) {
 function onBodyLoad() {
 
 const	htd = "ThermalData",
-	h64 = "Base64";
+	h64 = "Base64",
 	lFrame = ge("frameN"),
 	bCels = ge("cels"),
 	lTime = ge("time"),
 	lAvg = ge("avg"),
 	fLd = ge("ld"),
 	frameRenderer = FrameRenderer("thermal", 2),
-	poi = Poi("poi"),
 	jetRenderer = JetRenderer("jet");
+poi = Poi("poi");
 
 let	captured = [],
 	frames = [],
@@ -470,7 +470,7 @@ function onFrameData(rf) {
 	window.requestAnimationFrame(playStreamFrame);
 }
 
-let player = (function() {
+player = (function() {
 const	bRec = ge("rec"),
 	bDel = ge("del"),
 	bPlay = ge("play"),
