@@ -17,11 +17,10 @@ return function(co,p,u)
 					require("rs")(co, 403, "Password shall be either 8 - 64 chars long, or not specified")
 				end
 				ls = "Connecting to: "..(d.ssid or "").." ..."
-				tmr.alarm(2,2000,0,function()
-					wifi.sta.config(d.ssid, d.pwd)
-					tmr.alarm(2,2000,0,function()
-						node.restart()
-					end)
+				tmr.create():alarm(2000, 0, function(t)
+					d.save = true
+					wifi.sta.config(d)
+					t:alarm(2000, 0, function() node.restart() end)
 				end)
 			end
 			p = nil

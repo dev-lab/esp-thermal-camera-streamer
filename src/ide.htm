@@ -1,101 +1,82 @@
 <!DOCTYPE html>
 <head>
 <meta charset=utf-8>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-body {
-	font-family: Arial,"Helvetica Neue",Helvetica,sans-serif;
-	background: #000;
-	color: #88D;
-}
-textarea {
-	background-color: #000;
-	border: 1px solid #234;
-	color: #0f0;
-	padding: 8px;
-	font-family: courier new,sans-serif;
-}
+* {box-sizing:border-box}
+html, body {height:100%; display:flex; flex-direction:column}
+body {font-family:Arial,"Helvetica Neue",Helvetica,sans-serif; color:#88D; background:#000}
+textarea {background:#000; border:1px solid #234; color:#0f0; padding:8px; font-family:"courier new",sans-serif; resize:none; flex:1}
 </style>
 <title>IDE</title>
 <script language="javascript">
 
 var SrcL = function(c) {
 
-var Src = function(n, l) {
-	this.n = n; this.l = l;
-	this.info = function(add) {
-		return this.n + " (" + this.l + " bytes)" + (add ? (" " + add) : "");
-	}
+function Src(n, l) {
+	return {n: n, info: function(add) {
+		return n + " (" + l + " bytes)" + (add ? (" " + add) : "");
+	}};
 };
 
-var o = this,
-cfg = null,
-fl = [],
-ed = new Object(),
-cur = null,
-r = ge("stat"),
-files = ge("files"),
-src = ge("src"),
-fL = ge("fL"),
-fN = ge("fN"),
-fS = ge("fS"),
-fD = ge("fD");
+var o = this, cfg = null, fl = [], ed = {}, cur = null,
+r = ge("stat"), ls = ge("ls"), src = ge("src"),
+fL = ge("fL"), fN = ge("fN"), fS = ge("fS"), fD = ge("fD");
+
 src.onkeydown = function(e) {
-	var o = src;
-	if(e.keyCode == 9 || e.which == 9) {
+	if(e.key == 'Tab') {
 		e.preventDefault();
-		var s = o.selectionStart;
-		o.value = o.value.substring(0, o.selectionStart) + "\t" + o.value.substring(o.selectionEnd);
-		o.selectionEnd = s + 1;
+		var s = src.selectionStart;
+		sv(src, gv(src).substring(0, s) + "\t" + gv(src).substring(src.selectionEnd));
+		src.selectionEnd = s + 1;
+		o.ch();
 		return false; 
 	}
 };
 
 function enable(all, save) {
-	files.disabled = src.disabled = fL.disabled = fN.disabled = fD.disabled = !all;
+	ls.disabled = src.disabled = fL.disabled = fN.disabled = fD.disabled = !all;
 	fS.disabled = !save;
-};
+}
 
 function getMod(n) {
 	var e = ed[n];
-	if(!e) return null;
-	if(e.org == e.mod) return null;
+	if(!e || e.org == e.mod) return null;
 	return "*";
-};
+}
 
 function refresh() {
-	if(!cfg) {
-		return;
-	}
-	r.innerHTML = "File system: remaining " + cfg.ir + " bytes, used " + cfg.iu + " bytes, total " + cfg.it + " bytes.";
+	if(!cfg) return;
+	sh(r, "File system: remaining " + cfg.ir + " bytes, used " + cfg.iu + " bytes, total " + cfg.it + " bytes.");
 	fl = [];
 	if(cfg.f) {
 		for(var i in cfg.f) {
-			fl.push(new Src(i, cfg.f[i]));
+			fl.push(Src(i, cfg.f[i]));
 		}
 		fl.sort(function(a,b){return (a.n < b.n ? -1 : (a.n > b.n ? 1 : 0));});
 	}
-	var html = "";
-	var idx = 0;
+	var h = "";
+	var s = 0;
 	for(var i = 0; i < fl.length; i++) {
 		var f = fl[i];
-		if(f.n == cur) idx = i;
-		html += hO(f.info(getMod(f.n)));
+		if(f.n == cur) s = i;
+		h += hO(f.info(getMod(f.n)));
 	}
 
-	files.innerHTML = html;
-	files.selectedIndex = idx;
+	sh(ls, h);
+	ls.selectedIndex = s;
 	o.sel();
-};
+}
 
 o.getCur = function() {return cur;}
 
 o.render = function() {
-	http("/fList", null, function(re, s) {
+	http("/fList", "", function(re, s) {
 		if(s == 200) {
 			cfg = eval('(' + re + ')');
 			refresh();
 		} else {
-			r.innerHTML = re;
+			sh(r, re);
 		}
 	});
 	src.focus();
@@ -104,31 +85,29 @@ o.render = function() {
 o.ch = function() {
 	var n = cur;
 	var e = ed[n];
-	e.mod = src.value;
-	var i = files.selectedIndex;
+	e.mod = gv(src);
+	var i = ls.selectedIndex;
 	var f = fl[i];
 	var m = getMod(n);
-	files.options[i].text = f.info(m);
+	ls.options[i].text = f.info(m);
 	fS.disabled = !m;
 };
 
 o.sel = function() {
-	var n = fl[files.selectedIndex].n;
+	var n = fl[ls.selectedIndex].n;
 	var e = ed[n];
 	cur = n;
 	if(e) {
-		src.value = e.mod;
+		sv(src, e.mod);
 		enable(true, e.mod != e.org);
 	} else {
-		src.value = "Loading...";
+		sv(src, "Loading...");
 		src.disabled = true;
-		http("/fLoad?name=" + uri(n), null, function(re, s) {
+		http("/fLoad?name=" + uri(n), "", function(re, s) {
+			sv(src, re);
 			if(s == 200) {
-				src.value = re;
-				ed[n] = {org : src.value, mod : src.value};
+				ed[n] = {org : re, mod : re};
 				enable(true, false);
-			} else {
-				src.value = re;
 			}
 		});
 	}
@@ -136,10 +115,10 @@ o.sel = function() {
 
 o.save = function() {
 	var e = ed[cur];
-	e.mod = src.value; 
-	if(!e || e.org == e.mod || empty(e.mod)) return;
+	e.mod = gv(src); 
+	if(e.org == e.mod || empty(e.mod)) return;
 	enable(false, false);
-	src.value = "Uploading...";
+	sv(src, "Uploading...");
 	upload(cur, e.mod, function(r) {
 		if(r) {
 			e.org = e.mod;
@@ -160,7 +139,7 @@ o.create = function() {
 	}
 	cur = n;
 	cfg.f[n] = 0;
-	ed[n] = {org: null, mod : ""};
+	ed[n] = {org: null, mod: ""};
 	refresh();
 	src.focus();
 };
@@ -178,14 +157,14 @@ o.reload = function() {
 o.delete = function() {
 	var n = cur;
 	if(confirm("Do you really want to delete file: " + n + "?")) {
-		http("/fDel?name=" + uri(n), null, function(re, s) {
+		http("/fDel?name=" + uri(n), "", function(re, s) {
 			if(s == 200) {
-				var i = files.selectedIndex;
+				var i = ls.selectedIndex;
 				fl.splice(i, 1);
 				if(fl.length <= i) i = 0;
 				cur = fl[i];
 				o.render();
-				files.focus();
+				ls.focus();
 			} else {
 				alert("Error when deleting " + n + ": " + re);
 			}
@@ -196,18 +175,16 @@ o.delete = function() {
 };
 
 function restart() {
-	http("/eval", "node.restart()", function(re, s) {});
-};
+	http("/restart", "", function(re, s) {});
+}
 
 function och() {
-	if(window.srcl === undefined || !srcl.getCur()) {
-		return;
-	}
+	if(!window.srcl || !srcl.getCur()) return;
 	srcl.ch();
 }
 
 function onBodyLoad() {
-	if(window.srcl === undefined) {
+	if(!window.srcl) {
 		srcl = new SrcL();
 	}
 	srcl.render();
@@ -217,17 +194,19 @@ function onBodyLoad() {
 </head>
 
 <body>
-<h4><div id="stat"/></h4>
-File: <select disabled id="files" onChange="srcl.sel()" onkeyup="srcl.sel()">
+<h4><div id="stat" /></h4>
+<div>
+File: <select disabled id="ls" onChange="srcl.sel()" onkeyup="srcl.sel()">
 	<option>Loading...</option>
 </select>
 <input disabled type="button" id="fS" value="Save" onclick="srcl.save();"/>
 <input disabled type="button" id="fN" value="New"onclick="srcl.create();"/>
 <input disabled type="button" id="fL" value="Reload" onclick="srcl.reload();"/>
 <input disabled type="button" id="fD" value="Delete" onclick="srcl.delete();"/>
-<input type="button" id="fR" value="Restart" onclick="restart();" style="margin-left: 80px;"/>
+<input type="button" id="fR" value="Restart" onclick="restart();" style="float: right;"/>
 <br/><br/>
-<textarea disabled id="src" cols="80" rows="20" oninput="och()"></textarea></br>
+</div>
+<textarea disabled id="src" oninput="och()"></textarea>
 <script language="javascript">
 window.onload = function() {
 	var j = document.createElement("script");

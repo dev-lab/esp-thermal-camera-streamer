@@ -1,84 +1,51 @@
 <!DOCTYPE html>
 <head>
 <meta charset=utf-8>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-body {
-	font-family: Arial,"Helvetica Neue",Helvetica,sans-serif;
-	background: #000;
-	color: #88D;
-}
-form {
-	background: #123;
-	display: block;
-	margin: 0 0.5% 0 0.5%;
-}
-table.cfg {
-	width: 100%;
-}
-table.cfg td:nth-of-type(1) {
-	width: 120px;
-}
-table.cfg td:nth-of-type(2) {
-	width: 200px;
-}
-input[type="text"] {
-	width: 98%;
-}
-input[type="password"] {
-	width: 98%;
-}
-input:-moz-read-only {
-	background-color: #123;
-	border-color: #567;
-	color: #88D;
-}
-input:read-only {
-	background-color: 123;
-	border-color: #567;
-	color: #88D;
-}
+* {box-sizing:border-box}
+body {font-family:Arial,"Helvetica Neue",Helvetica,sans-serif; background:#000;	color:#88D}
+form {background:#123; display:block}
+table {width:100%}
+table td:nth-of-type(1) {width:10%}
+input[type="text"], input[type="password"] {max-width:15rem; width:100%}
+select {max-width:30rem; width:100%}
+input:read-only, input:-moz-read-only {background:#123;	border-color:#567; color:#88D}
+@media only screen and (max-width:30rem) {body {margin: 0}}
 </style>
 
 <title>Configure</title>
 <script language="javascript">
 
-function combo(lst, ed) {
-	ed = ge(ed);
-	var idx = lst.selectedIndex;
-	if(idx > 0) ed.value = aps[idx].toString();
+function wfs(l, e) {
+	var i = l.selectedIndex;
+	if(i > 0) sv(ge(e), aps[i].n);
 }
-function comboEdit(ed, lst) {
-	var value = ed.value;
-	lst = ge(lst);
-	var idx = lst.selectedIndex;
-	if(value == aps[idx].toString()) return;
-	for(i = 0; i < aps.length; i++) {
-		if(aps[i].toString() == value) {
-			lst.selectedIndex = i;
+function wfe(e, l) {
+	var v = gv(e);
+	l = ge(l);
+	if(v == aps[l.selectedIndex].n) return;
+	for(var i = 0; i < aps.length; i++) {
+		if(aps[i].n == v) {
+			l.selectedIndex = i;
 			return;
 		}
 	}
-	lst.selectedIndex = 0;
+	l.selectedIndex = 0;
 }
 function updateStatus(sta, ap) {
-	staStat = sta;
-	apStat = ap;
-	ge("staStat").value = staStat;
-	ge("apStat").value = apStat;
+	sh(ge("staStat"), sta);
+	sh(ge("apStat"), ap);
 }
-function validateAp(f, pwd1) {
-	var p1 = f["pwd"].value;
-	var p2 = ge(pwd1).value;
-	if (p1 != p2) {
-		alert("Passwords entered don't match!");
-		return false;
-	}
-	return true;
+function validateAp(f, p2) {
+	if(gv(f["pwd"]) == gv(ge(p2))) return true;
+	alert("Passwords entered don't match!");
+	return false;
 }
 
 function valueMod(f, n, v) {
 	if("" == v) return v;
-	var fn = f["m"].value;
+	var fn = gv(f["m"]);
 	if(fn == "admin" && n == "old") {
 		return btoa(fn + ":" + v);
 	} else if((fn == "admin" || fn == "user") && n == "pwd") {
@@ -87,25 +54,23 @@ function valueMod(f, n, v) {
 	return v;
 }
 
-function genForm(name, label, pre, woOld, wRestart) {
+function genForm(n, label, pre, woo, rst) {
 	var t = "";
-	var pwdId = name + "Pwd";
-	var statId = name + "Stat";
-	if(pre) {
-		t = pre;
-	}
-	if(!woOld) {
+	var pwd = n + "Pwd";
+	var st = n + "Stat";
+	if(pre) t = pre;
+	if(!woo) {
 		t += hFRow("Old password:", hInputP(null, 'old', ''));
 	}
-	t += hFRow("Password:", hInputP(null, 'pwd', ''), ' ');
-	t += hFRow("Retype password:", hInputP(pwdId, null, ''));
-	t += hTr(hTd(hButtonS("Submit" + (wRestart?", Restart":""), "m", name))
-		+ hTd(hInputT(statId, null, '', 'readonly'), 'colspan="2"'));
-	return hT(hT(label, 'h2') + '\n' + hT(t, 'table', 'class="cfg"'), 'form',
-			hArg('name', name) + +hArg("autocomplete", "off") + hArg('action', 'cfg')
-		+ hArg('onsubmit', "return postForm(this, '/cfg?m=" + name
-			+ "', validateAp, '" + pwdId + "', '" + statId
-			+ "', " + (wRestart?"staRefresh":"null")+ ", valueMod);")
+	t += hFRow("Password:", hInputP(null, 'pwd', ''));
+	t += hFRow("Retype password:", hInputP(pwd, null, ''));
+	t += hFRow(hButtonS("Submit" + (rst?", Restart":""), "m", n),
+		hT(' ', 'div', hArg('id', st)));
+	return hT(hT(label, 'h2') + '\n' + hT(t, 'table'), 'form',
+			hArg('name', n) + hArg('autocomplete', 'off') + hArg('action', 'cfg')
+		+ hArg('onsubmit', "return postForm(this, '/cfg?m=" + n
+			+ "', validateAp, '" + pwd + "', '" + st
+			+ "', " + (rst?"staRefresh":"null")+ ", valueMod);")
 		+ hArg('method', 'POST'));
 }
 
@@ -115,54 +80,52 @@ function staRefresh(re, s) {
 	}
 }
 
+function ap(n, d) {
+	var d = d.split(',');
+	d[0] = ["Open","WEP","WPA","WPA2","WPA+WPA2"][d[0]];
+	return {
+		s: d[1],
+		n: n,
+		d: n + " (" + d[0] + ", " + d[1] + "dBm, " + d[2] + ", CH:" + d[3] + ")"
+	};
+}
+
 function staHandler(re, s) {
 	if(s != 200) {
 		updateStatus(re, re);
 		return;
 	}
-	var sel = ge("ssidList");
-	var ed = ge("ssid");
-	sel.disabled = false;
-	ed.disabled = false;
-	var stat = eval('(' + re + ')');
-	html = hO("");
+	var l = ge("wf"), e = ge("ssid");
+	l.disabled = false;
+	e.disabled = false;
+	var r = eval('(' + re + ')'), h = hO(""), a = 0, n = r.stat;
 	aps = [];
-	function Ap(n, d) {
-		this.n = n; this.d = d.split(','); this.toString = function() {return this.n};
-		this.d[0] = ["Open","WEP","WPA","WPA2","WPA+WPA2"][this.d[0]];
-		this.info = function() {
-			var d = this.d;
-			return this.n + " (" + d[0] + ", " + d[1] + "dBm, " + d[2] + ", CH:" + d[3] + ")";
+	if(r.aps) {
+		for(var i in r.aps) {
+			a = 1;
+			aps.push(ap(i, r.aps[i]));
 		}
-	};
-	var idx = 0;
-	if(stat.aps) {
-		for(var i in stat.aps) {
-			idx = 1;
-			aps.push(new Ap(i, stat.aps[i]));
-		}
-		aps.sort(function(a,b){return b.d[1] - a.d[1]});
+		aps.sort(function(a,b){return b.s - a.s;});
 	}
 	aps.unshift("");
 	for(var i = 1; i < aps.length; i++) {
-		html += hO(aps[i].info());
+		h += hO(aps[i].d);
 	}
 
-	sel.innerHTML = html;
-	sel.selectedIndex = idx;
-	ed.value = aps[idx].toString();
-	var st = stat.stat;
-	updateStatus(st.ls + " ip:" + st.ip + ", netmask:" + st.nm + ", gateway:" + st.gw,
-		st.als + (st.aip ? " ip:" + st.aip + ", netmask:" + st.anm + ", gateway:" + st.agw : ""));
+	sh(l, h);
+	l.selectedIndex = a;
+	sv(e, aps[a].n);
+	updateStatus(n.ls + " ip:" + n.ip + ", netmask:" + n.nm + ", gateway:" + n.gw,
+		n.als + (n.aip ? " ip:" + n.aip + ", netmask:" + n.anm + ", gateway:" + n.agw : ""));
+	l.focus();
 }
 
 function onBodyLoad() {
-	var apC = hFRow("Name:", hInputT(null, 'ssid', null))
-		+ hFRow("Setup only:", hInput('checkbox', null, 'opt', '1', 'checked'), "Disable Access Point on successful connection to Wireless Network.");
-	ge("forms").innerHTML =	genForm('ap', 'Setup Wi-Fi access point:', apC, true, true, staRefresh)
+	var ap = hFRow("Name:", hInputT(null, 'ssid', null))
+		+ hFRow("Setup only:", hInput('checkbox', null, 'opt', '1', 'checked') + "Disable Access Point on successful connection to Wireless Network.");
+	sh(ge("forms"), genForm('ap', 'Setup Wi-Fi access point:', ap, true, true, staRefresh)
 		+ genForm('admin', 'Change admin password:')
-		+ genForm('user', 'Change user password:', null, true);
-	ge("ssidList").focus();
+		+ genForm('user', 'Change user password:', null, true));
 	postForm(dc.forms["sta"], "/cfgSta", null, null, null, staHandler);
 }
 </script>
@@ -170,24 +133,24 @@ function onBodyLoad() {
 <body>
 <form name="sta" autocomplete="off" action="cfg" method="POST" onsubmit="return postForm(this, '/cfg?m=sta', null, null, 'staStat', staRefresh);">
 <h2>Connect to wireless network:</h2>
-<table class="cfg">
+<table>
 	<tr><td><b>Name:</b></td>
-		<td><input disabled type="text" id="ssid" name="ssid" onkeyup="comboEdit(this, 'ssidList')"/></td>
-		<td><select disabled id="ssidList" onChange="combo(this, 'ssid')" onkeyup="combo(this, 'ssid')">
+		<td><input disabled type="text" id="ssid" name="ssid" onkeyup="wfe(this, 'wf')"/>
+		<select disabled id="wf" onChange="wfs(this, 'ssid')" onkeyup="wfs(this, 'ssid')">
 			<option>Loading...</option>
 		</select></td>
 	</tr><tr><td><b>Password:</b></td>
 		<td><input type="text" name="pwd" value=""></td>
 	</tr><tr><td><button type="submit" value="sta" name="m">Connect</button></td>
-		<td colspan="2"><input type="text" id="staStat" readonly/></td>
+		<td><div id="staStat"></div></td>
 	</tr>
 </table>
 </form>
 <form name="tsetup" autocomplete="off" action="tsetup" method="POST" onsubmit="return postForm(this, '/tsetup', null, null, 'tsetupStat');">
 <h2>Setup the thermal sensor:</h2>
-<table class="cfg">
+<table>
 	<tr><td><button type="submit">Setup</button></td>
-		<td colspan="2"><input type="text" id="tsetupStat" readonly/></td>
+		<td><div id="tsetupStat"></div></td>
 	</tr>
 </table>
 </form>

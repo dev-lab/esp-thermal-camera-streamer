@@ -3,7 +3,7 @@ local z = ...
 return function(q)
 	package.loaded[z] = nil
 	z = nil
-	local u = cfg[1] and (cfg[2] and 9 or 2) or 1
+	local u = cf[1] and (cf[2] and 9 or 2) or 1
 	local s1, st = q:find("\r\n\r\n")
 	local h = s1 and q:sub(1, s1 - 1) or q
 	local g = {}
@@ -15,7 +15,7 @@ return function(q)
 	if u > 1 then
 		local ab = h:match("Authorization: Basic ([A-Za-z0-9+/=]+)")
 		if ab then
-			if ab == cfg[1] then u = 1 elseif ab == cfg[2] then u = 2 end
+			if ab == cf[1] then u = 1 elseif ab == cf[2] then u = 2 end
 		end
 	end
 	if u > 2 then
@@ -39,8 +39,9 @@ return function(q)
 		vs = nil
 	end
 	local _, _, _, e = p:find("(.*)%.(%w*)%c*$")
+	if not e and m == "GET" then e = "" end
 	m = nil
 	h = nil
 	collectgarbage()
-        return p, e, u, g
+	return p, e, u, g
 end

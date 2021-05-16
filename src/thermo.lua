@@ -1,20 +1,10 @@
 local z = ...
 
-local function fixT(pr, cnt)
-	uart.write(0, pr.."\165\85\1\251")
-	tmr.alarm(4,100,0,function()
-		tmr.wdclr()
-		if not emi then
-			fixT(em0 and "" or "\0", cnt)
-		else
-			uart.on("data")
-			cnt()
-		end
-	end)
-end
-
-local function ldEmi(cnt)
-	if emi then cnt() end
+local function ldEmi(fi)
+	if emi then
+		fi()
+		return
+	end
 	uart.on("data", 1, function(d)
 		if not em0 or em0 > 3 then
 			em0 = 1
@@ -28,28 +18,43 @@ local function ldEmi(cnt)
 			if em0 == 3 then emi = d:byte(1) end
 		end
 	end, 0)
-	fixT("", cnt)
+	uart.write(0, "\165\85\1\251")
+	local t = tmr.create()
+	t:register(100,1,function()
+		if not emi then
+			uart.write(0, (em0 and "" or "\0").."\165\85\1\251")
+		else
+			t:unregister()
+			uart.on("data")
+			fi()
+		end
+	end)
+	t:start()
 end
 
 
 local function setTh(cnt)
-        uart.on("data")
+	uart.on("data")
+	local th = {
+		"\165\21\2\188", --115200
+		"\165\37\4\206", --8Hz
+		"\165\53\1\219", --manual
+		nil, "\165\101\1\11" --save
+	}
 	ldEmi(function ()
-		uart.write(0, "\165\21\2\188") --115200
-		tmr.alarm(4,100,0,function()
-			tmr.wdclr()
-			uart.write(0, "\165\37\4\206") --8Hz
-			tmr.alarm(4,100,0,function()
-				tmr.wdclr()
-				uart.write(0, "\165\53\1\219") --manual
-				tmr.alarm(4,200,0,function()
-					tmr.wdclr()
-					uart.write(0, "\165\101\1\11") --save
-					emi = nil
-					cnt()
-				end)
-			end)
+		local i = 1
+		local s = tmr.create()
+		s:register(100,1,function()
+			if th[i] then uart.write(0, th[i]) end
+			if i < #th then
+				i = i + 1
+			else
+				s:unregister()
+				emi = nil
+				cnt()
+			end
 		end)
+		s:start()
 	end)
 end
 
@@ -60,8 +65,8 @@ end
 return function(f, cnt)
 	package.loaded[z] = nil
 	z = nil
-        local v1 = {S = setTh,
-                I = initTh
-        }
-        v1[f](cnt)
+	local v1 = {S = setTh,
+		I = initTh
+	}
+	v1[f](cnt)
 end

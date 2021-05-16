@@ -34,7 +34,7 @@ local function delCd(d, c)
 	if #pr == 0 then
 		for k, v in pairs(prq) do prq[k] = nil end
 		uart.on("data")
-                uart.write(0, "\165\53\1\219")
+		uart.write(0, "\165\53\1\219")
 		emi = nil
 		em0 = nil
 		collectgarbage()
@@ -99,7 +99,7 @@ local function onUart(d)
 		if fpw == 3 or l then
 			fqw = (fqw == 4 and 1 or (fqw + 1))
 			local fp1 = encoder.toBase64(fp)
-			fq[fqw] = string.format('%X', #fp1 + (l and 1 or 0)).."\r\n"..fp1..(l and "\n" or "").."\r\n"
+			fq[fqw] = string.format('%X', #fp1 + (l and 9 or 0)).."\r\n"..fp1..(l and string.format('%8X\n', tmr.now()) or "").."\r\n"
 			fp = ""
 			fp1 = nil
 			if l then for i, c in ipairs(pr) do onSent(i, c) end end
@@ -124,12 +124,14 @@ return function(c,p,u)
 	local v, a = c:getpeer()
 	prq[a..":"..v] = 0
 	if prc == 0 then
-		tmr.alarm(4,100,0,function()
+		local t = tmr.create()
+		t:register(100,0,function()
 			require("thermo")("I", function()
 				uart.on("data", 222, onUart, 0)
-		                uart.write(0, "\165\53\2\220")
+				uart.write(0, "\165\53\2\220")
 			end)
 		end)
+		t:start()
 	end
 	collectgarbage()
 end
